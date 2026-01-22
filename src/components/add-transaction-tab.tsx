@@ -12,15 +12,24 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CATEGORIES, Category, Transaction, FundedFrom, Preset, getCategoryById } from "@/types";
-import { Check, ChevronRight, Zap } from "lucide-react";
+import { Check, ChevronRight, Zap, CreditCard } from "lucide-react";
 
 type AddTransactionTabProps = {
   onAddTransaction: (transaction: Omit<Transaction, "id" | "created_at" | "user_id">) => void;
   presets?: Preset[];
+  totalDebt?: number;
 };
 
-export function AddTransactionTab({ onAddTransaction, presets = [] }: AddTransactionTabProps) {
+export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 0 }: AddTransactionTabProps) {
   const [amount, setAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
@@ -28,6 +37,8 @@ export function AddTransactionTab({ onAddTransaction, presets = [] }: AddTransac
   const [note, setNote] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [subcategorySheetOpen, setSubcategorySheetOpen] = useState(false);
+  const [showPayDebtDialog, setShowPayDebtDialog] = useState(false);
+  const [debtPaymentAmount, setDebtPaymentAmount] = useState("");
 
   const fundedFromOptions: { value: FundedFrom; label: string; emoji: string }[] = [
     { value: "income", label: "This Month", emoji: "💵" },
@@ -84,8 +95,99 @@ export function AddTransactionTab({ onAddTransaction, presets = [] }: AddTransac
 
   const isValid = amount && parseFloat(amount) > 0 && selectedCategory;
 
+  const handlePayDebt = () => {
+    const paymentAmount = parseFloat(debtPaymentAmount);
+    if (!paymentAmount || paymentAmount <= 0 || paymentAmount > totalDebt) return;
+
+    const debtPaymentTransaction: Omit<Transaction, "id" | "created_at" | "user_id"> = {
+      amount: paymentAmount,
+      type: "debt_payment",
+      category_id: "debt_payment",
+      note: "Debt payment",
+      date: new Date().toISOString().split("T")[0],
+    };
+
+    onAddTransaction(debtPaymentTransaction);
+    setShowPayDebtDialog(false);
+    setDebtPaymentAmount("");
+  };
+
+  const openPayDebtDialog = () => {
+    setDebtPaymentAmount(totalDebt.toFixed(2));
+    setShowPayDebtDialog(true);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Pay Debt Section - Only shown when debt > 0 */}
+      {totalDebt > 0 && (
+        <Card className="border-expense/50 bg-expense-muted">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-expense">
+                <CreditCard className="h-4 w-4" />
+                <span className="text-sm font-medium">Outstanding Debt</span>
+              </div>
+              <span className="text-lg font-bold text-expense">
+                ${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full border-expense text-expense hover:bg-expense hover:text-white"
+              onClick={openPayDebtDialog}
+            >
+              💸 Pay Debt
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pay Debt Dialog */}
+      <Dialog open={showPayDebtDialog} onOpenChange={setShowPayDebtDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pay Debt</DialogTitle>
+            <DialogDescription>
+              Enter the amount you want to pay towards your debt of ${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="debtAmount">Payment Amount</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-medium text-muted-foreground">$</span>
+                <Input
+                  id="debtAmount"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={debtPaymentAmount}
+                  onChange={(e) => setDebtPaymentAmount(e.target.value)}
+                  max={totalDebt}
+                  step="0.01"
+                />
+              </div>
+              {parseFloat(debtPaymentAmount) > totalDebt && (
+                <p className="text-xs text-expense">Amount cannot exceed total debt</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPayDebtDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-expense hover:bg-expense/90"
+              onClick={handlePayDebt}
+              disabled={!debtPaymentAmount || parseFloat(debtPaymentAmount) <= 0 || parseFloat(debtPaymentAmount) > totalDebt}
+            >
+              Pay ${debtPaymentAmount ? parseFloat(debtPaymentAmount).toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Amount Input - Large and Prominent */}
       <Card className="border-0 bg-secondary">
         <CardContent className="p-6">

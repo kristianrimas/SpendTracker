@@ -1,7 +1,10 @@
-export type TransactionType = "income" | "expense" | "savings";
+export type TransactionType = "income" | "expense" | "savings" | "debt_payment";
 
 // Where the money comes from when spending
 export type FundedFrom = "income" | "savings" | "emergency_fund";
+
+// Savings type for differentiating manual vs auto-saved
+export type SavingsType = "manual" | "auto";
 
 export type Category = {
   id: string;
@@ -23,6 +26,19 @@ export type Transaction = {
   user_id: string;
   // For expenses: where is the money coming from?
   funded_from?: FundedFrom;
+  // For savings: whether auto-generated at month end
+  is_auto?: boolean;
+  savings_type?: SavingsType;
+};
+
+// Month status for tracking month-end processing
+export type MonthStatus = {
+  id: string;
+  user_id: string;
+  month: string; // Format: "YYYY-MM"
+  processed_at: string | null;
+  auto_amount: number;
+  debt_amount: number;
 };
 
 export type MonthlyOverview = {
@@ -64,6 +80,9 @@ export const CATEGORIES: Category[] = [
   // Savings (treated as outflow, not leftover)
   { id: "savings", name: "Savings", emoji: "💾", type: "savings", subcategories: ["General", "Investments", "Retirement"] },
   { id: "emergency_fund", name: "Emergency Fund", emoji: "🛡️", type: "savings" },
+
+  // Debt Payment (system category for paying off debt)
+  { id: "debt_payment", name: "Debt Payment", emoji: "💸", type: "debt_payment" },
 ];
 
 // Helper to get category by id

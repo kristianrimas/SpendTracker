@@ -174,6 +174,7 @@ export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProp
       {Object.entries(groupedTransactions).map(([date, dayTransactions]) => {
         const dayTotal = dayTransactions.reduce((sum, t) => {
           if (t.type === "income") return sum + t.amount;
+          // debt_payment, savings, and expenses all subtract from the total
           return sum - t.amount;
         }, 0);
 
@@ -235,7 +236,12 @@ export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProp
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">{category?.emoji || "📝"}</span>
                           <div>
-                            <p className="font-medium">{category?.name || "Unknown"}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{category?.name || "Unknown"}</p>
+                              {transaction.is_auto && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Auto</span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               {transaction.subcategory && (
                                 <span>{transaction.subcategory}</span>
@@ -257,6 +263,8 @@ export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProp
                               ? "text-income"
                               : transaction.type === "savings"
                               ? "text-savings"
+                              : transaction.type === "debt_payment"
+                              ? "text-amber-500"
                               : "text-expense"
                           }`}
                         >

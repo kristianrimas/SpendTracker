@@ -10,14 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, PiggyBank, Wallet, Shield, Calendar, X } from "lucide-react";
-import { Transaction, getCategoryById } from "@/types";
+import { TrendingUp, TrendingDown, PiggyBank, Wallet, Shield, Calendar, X, CreditCard, AlertTriangle } from "lucide-react";
+import { Transaction, MonthStatus, getCategoryById } from "@/types";
 
 type OverviewTabProps = {
   transactions: Transaction[]; // All transactions
+  monthStatuses: MonthStatus[]; // Month processing statuses
+  totalDebt: number; // All-time debt
+  onCloseMonth: (month: string, remaining: number) => void;
 };
 
-export function OverviewTab({ transactions }: OverviewTabProps) {
+export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMonth }: OverviewTabProps) {
   // Default to current month
   const getCurrentMonthKey = () => {
     const now = new Date();
@@ -56,21 +59,46 @@ export function OverviewTab({ transactions }: OverviewTabProps) {
   }, [transactions, selectedMonth]);
 
   // Calculate overview from filtered transactions
-  const overview = monthTransactions.reduce(
-    (acc, t) => {
-      if (t.type === "income") {
-        acc.totalIncome += t.amount;
-      } else if (t.type === "savings") {
-        acc.totalSaved += t.amount;
-      } else {
-        acc.totalExpenses += t.amount;
-      }
-      return acc;
-    },
-    { totalIncome: 0, totalExpenses: 0, totalSaved: 0 }
-  );
+  const overview = useMemo(() => {
+    const result = {
+      totalIncome: 0,
+      totalExpenses: 0,
+      totalSaved: 0, // All savings for display
+      manualSaved: 0, // Manual savings only
+      autoSaved: 0, // Auto-saved at month end
+      debtPayments: 0, // Debt payments
+    };
 
-  const remaining = overview.totalIncome - overview.totalExpenses - overview.totalSaved;
+    monthTransactions.forEach((t) => {
+      if (t.type === "income") {
+        result.totalIncome += t.amount;
+      } else if (t.type === "savings") {
+        result.totalSaved += t.amount;
+        // Check if auto-saved (either by is_auto flag or savings_type)
+        if (t.is_auto || t.savings_type === "auto") {
+          result.autoSaved += t.amount;
+        } else {
+          result.manualSaved += t.amount;
+        }
+      } else if (t.type === "debt_payment") {
+        result.debtPayments += t.amount;
+      } else if (t.type === "expense") {
+        result.totalExpenses += t.amount;
+      }
+    });
+
+    return result;
+  }, [monthTransactions]);
+
+  // New formula: Manual savings don't affect Remaining
+  // Remaining = Income - Expenses - Debt Payments - Auto Savings
+  const remaining = overview.totalIncome - overview.totalExpenses - overview.debtPayments - overview.autoSaved;
+
+  // Check if selected month is processed
+  const isMonthProcessed = useMemo(() => {
+    const status = monthStatuses.find(ms => ms.month === selectedMonth);
+    return status?.processed_at !== null && status?.processed_at !== undefined;
+  }, [monthStatuses, selectedMonth]);
 
   // Calculate cumulative savings and emergency fund (all-time)
   const cumulativeTotals = transactions.reduce(
@@ -194,6 +222,35 @@ export function OverviewTab({ transactions }: OverviewTabProps) {
         </Card>
       </div>
 
+      {/* Close Month Banner - Only for unprocessed past months */}
+      {selectedMonth < getCurrentMonthKey() && !isMonthProcessed && (
+        <Card className="border-amber-500/30 bg-amber-500/10">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-amber-500 mb-1">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Month not closed</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {remaining >= 0
+                    ? `$${remaining.toLocaleString("en-US", { minimumFractionDigits: 2 })} will be auto-saved`
+                    : `$${Math.abs(remaining).toLocaleString("en-US", { minimumFractionDigits: 2 })} will become debt`}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white ml-3 flex-shrink-0"
+                onClick={() => onCloseMonth(selectedMonth, remaining)}
+              >
+                Close Month
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Cumulative Totals - All Time */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="border border-savings/30 bg-savings/10">
@@ -222,6 +279,22 @@ export function OverviewTab({ transactions }: OverviewTabProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Total Debt Card - Only shown if debt > 0 */}
+      {totalDebt > 0 && (
+        <Card className="border border-expense/30 bg-expense/10">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-expense mb-1">
+              <CreditCard className="h-4 w-4" />
+              <span className="text-sm font-medium">Total Debt</span>
+            </div>
+            <p className="text-2xl font-bold text-expense">
+              ${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Carried over from past months</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top Spending Categories */}
       {sortedExpenses.length > 0 && (
@@ -284,18 +357,25 @@ export function OverviewTab({ transactions }: OverviewTabProps) {
                         )}
                       </div>
                     </div>
-                    <span
-                      className={`font-medium ${
-                        transaction.type === "income"
-                          ? "text-income"
-                          : transaction.type === "savings"
-                          ? "text-savings"
-                          : "text-expense"
-                      }`}
-                    >
-                      {transaction.type === "income" ? "+" : "-"}$
-                      {transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {transaction.is_auto && (
+                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Auto</span>
+                      )}
+                      <span
+                        className={`font-medium ${
+                          transaction.type === "income"
+                            ? "text-income"
+                            : transaction.type === "savings"
+                            ? "text-savings"
+                            : transaction.type === "debt_payment"
+                            ? "text-amber-500"
+                            : "text-expense"
+                        }`}
+                      >
+                        {transaction.type === "income" ? "+" : "-"}$
+                        {transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
                 );
               })}

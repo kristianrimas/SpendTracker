@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { AppHeader } from "@/components/app-header";
@@ -10,7 +10,7 @@ import { AddTransactionTab } from "@/components/add-transaction-tab";
 import { HistoryTab } from "@/components/history-tab";
 import { InsightsTab } from "@/components/insights-tab";
 import { SettingsTab } from "@/components/settings-tab";
-import { Transaction, Preset, getCategoryById } from "@/types";
+import { Transaction, Preset, MonthStatus, getCategoryById } from "@/types";
 import { cn } from "@/lib/utils";
 
 type Tab = "overview" | "add" | "history" | "insights" | "settings";
@@ -18,6 +18,7 @@ type Tab = "overview" | "add" | "history" | "insights" | "settings";
 export default function HomePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
+  const [monthStatuses, setMonthStatuses] = useState<MonthStatus[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [isLoaded, setIsLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -58,6 +59,18 @@ export default function HomePage() {
         console.error("Error fetching presets:", presetsError);
       } else {
         setPresets(presetsData || []);
+      }
+
+      // Fetch month statuses
+      const { data: monthStatusesData, error: monthStatusesError } = await supabase
+        .from("st_month_status")
+        .select("*")
+        .order("month", { ascending: false });
+
+      if (monthStatusesError) {
+        console.error("Error fetching month statuses:", monthStatusesError);
+      } else {
+        setMonthStatuses(monthStatusesData || []);
       }
 
       setIsLoaded(true);
@@ -101,6 +114,8 @@ export default function HomePage() {
         note: newTransaction.note,
         date: newTransaction.date,
         funded_from: newTransaction.funded_from,
+        is_auto: newTransaction.is_auto,
+        savings_type: newTransaction.savings_type,
       })
       .select()
       .single();
@@ -221,6 +236,173 @@ export default function HomePage() {
     }
   }, [userId, presets, supabase]);
 
+  // Calculate total debt (all-time)
+  const totalDebt = useMemo(() => {
+    const debtFromMonthStatuses = monthStatuses.reduce((sum, ms) => sum + (ms.debt_amount || 0), 0);
+    const debtPayments = transactions
+      .filter(t => t.type === "debt_payment")
+      .reduce((sum, t) => sum + t.amount, 0);
+    return Math.max(0, debtFromMonthStatuses - debtPayments);
+  }, [monthStatuses, transactions]);
+
+  // Helper to get last day of a month
+  const getLastDayOfMonth = (monthKey: string) => {
+    const [year, month] = monthKey.split("-").map(Number);
+    const lastDay = new Date(year, month, 0).getDate();
+    return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  };
+
+  // Helper to format month for display
+  const formatMonth = (monthKey: string) => {
+    const [year, month] = monthKey.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  };
+
+  const handleCloseMonth = useCallback(async (month: string, remaining: number) => {
+    if (!userId) return;
+
+    try {
+      if (remaining > 0) {
+        // Create auto-savings transaction
+        const autoSavingsTransaction = {
+          user_id: userId,
+          amount: remaining,
+          type: "savings" as const,
+          category_id: "savings",
+          subcategory: "Auto-Saved",
+          note: `Auto-saved from ${formatMonth(month)}`,
+          date: getLastDayOfMonth(month),
+          is_auto: true,
+          savings_type: "auto" as const,
+        };
+
+        const { data: newTransaction, error: transactionError } = await supabase
+          .from("st_transactions")
+          .insert(autoSavingsTransaction)
+          .select()
+          .single();
+
+        if (transactionError) throw transactionError;
+
+        // Update local transactions state
+        if (newTransaction) {
+          setTransactions(prev => [newTransaction, ...prev]);
+        }
+
+        // Create/update month status
+        const { error: statusError } = await supabase
+          .from("st_month_status")
+          .upsert({
+            user_id: userId,
+            month,
+            processed_at: new Date().toISOString(),
+            auto_amount: remaining,
+            debt_amount: 0,
+          }, { onConflict: "user_id,month" });
+
+        if (statusError) throw statusError;
+
+        // Update local month statuses
+        setMonthStatuses(prev => {
+          const existing = prev.find(ms => ms.month === month);
+          if (existing) {
+            return prev.map(ms => ms.month === month
+              ? { ...ms, processed_at: new Date().toISOString(), auto_amount: remaining, debt_amount: 0 }
+              : ms
+            );
+          }
+          return [...prev, {
+            id: crypto.randomUUID(),
+            user_id: userId,
+            month,
+            processed_at: new Date().toISOString(),
+            auto_amount: remaining,
+            debt_amount: 0,
+          }];
+        });
+
+        toast.success(`${formatMonth(month)} closed`, {
+          description: `$${remaining.toLocaleString("en-US", { minimumFractionDigits: 2 })} auto-saved`,
+        });
+      } else if (remaining < 0) {
+        // Record debt in month_status
+        const debtAmount = Math.abs(remaining);
+
+        const { error: statusError } = await supabase
+          .from("st_month_status")
+          .upsert({
+            user_id: userId,
+            month,
+            processed_at: new Date().toISOString(),
+            auto_amount: 0,
+            debt_amount: debtAmount,
+          }, { onConflict: "user_id,month" });
+
+        if (statusError) throw statusError;
+
+        // Update local month statuses
+        setMonthStatuses(prev => {
+          const existing = prev.find(ms => ms.month === month);
+          if (existing) {
+            return prev.map(ms => ms.month === month
+              ? { ...ms, processed_at: new Date().toISOString(), auto_amount: 0, debt_amount: debtAmount }
+              : ms
+            );
+          }
+          return [...prev, {
+            id: crypto.randomUUID(),
+            user_id: userId,
+            month,
+            processed_at: new Date().toISOString(),
+            auto_amount: 0,
+            debt_amount: debtAmount,
+          }];
+        });
+
+        toast.success(`${formatMonth(month)} closed`, {
+          description: `$${debtAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })} added to debt`,
+        });
+      } else {
+        // Remaining is exactly 0 - just mark as processed
+        const { error: statusError } = await supabase
+          .from("st_month_status")
+          .upsert({
+            user_id: userId,
+            month,
+            processed_at: new Date().toISOString(),
+            auto_amount: 0,
+            debt_amount: 0,
+          }, { onConflict: "user_id,month" });
+
+        if (statusError) throw statusError;
+
+        setMonthStatuses(prev => {
+          const existing = prev.find(ms => ms.month === month);
+          if (existing) {
+            return prev.map(ms => ms.month === month
+              ? { ...ms, processed_at: new Date().toISOString(), auto_amount: 0, debt_amount: 0 }
+              : ms
+            );
+          }
+          return [...prev, {
+            id: crypto.randomUUID(),
+            user_id: userId,
+            month,
+            processed_at: new Date().toISOString(),
+            auto_amount: 0,
+            debt_amount: 0,
+          }];
+        });
+
+        toast.success(`${formatMonth(month)} closed`);
+      }
+    } catch (error) {
+      console.error("Error closing month:", error);
+      toast.error("Failed to close month");
+    }
+  }, [userId, supabase]);
+
   // Don't render until we've loaded
   if (!isLoaded) {
     return (
@@ -249,7 +431,12 @@ export default function HomePage() {
         <div className="relative">
           {activeTab === "overview" && (
             <div className="animate-in fade-in duration-200">
-              <OverviewTab transactions={transactions} />
+              <OverviewTab
+                transactions={transactions}
+                monthStatuses={monthStatuses}
+                totalDebt={totalDebt}
+                onCloseMonth={handleCloseMonth}
+              />
             </div>
           )}
 
@@ -258,6 +445,7 @@ export default function HomePage() {
               <AddTransactionTab
                 onAddTransaction={handleAddTransaction}
                 presets={presets}
+                totalDebt={totalDebt}
               />
             </div>
           )}
