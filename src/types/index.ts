@@ -75,6 +75,7 @@ export const CATEGORIES: Category[] = [
   { id: "lifestyle", name: "Lifestyle", emoji: "🎉", type: "expense", subcategories: ["Entertainment", "Hobbies", "Games", "Events"] },
   { id: "travel", name: "Travel", emoji: "✈️", type: "expense", subcategories: ["Flights", "Accommodation", "Activities"] },
   { id: "health", name: "Health", emoji: "🏥", type: "expense", subcategories: ["Doctor", "Medication", "Gym/Fitness", "Therapy"] },
+  { id: "shopping", name: "Shopping", emoji: "🛒", type: "expense", subcategories: ["Home", "Electronics", "Gifts", "Other"] },
   { id: "debt", name: "Debt", emoji: "💳", type: "expense", subcategories: ["Credit Card", "Personal Loans", "Student Loans"] },
 
   // Savings (treated as outflow, not leftover)
