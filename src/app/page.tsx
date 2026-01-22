@@ -66,16 +66,6 @@ export default function HomePage() {
     loadData();
   }, [supabase]);
 
-  // Filter transactions for current month
-  const currentMonthTransactions = transactions.filter((t) => {
-    const transactionDate = new Date(t.date);
-    const now = new Date();
-    return (
-      transactionDate.getMonth() === now.getMonth() &&
-      transactionDate.getFullYear() === now.getFullYear()
-    );
-  });
-
   const handleAddTransaction = useCallback(async (
     newTransaction: Omit<Transaction, "id" | "created_at" | "user_id">
   ) => {
@@ -259,10 +249,7 @@ export default function HomePage() {
         <div className="relative">
           {activeTab === "overview" && (
             <div className="animate-in fade-in duration-200">
-              <OverviewTab
-                transactions={currentMonthTransactions}
-                allTransactions={transactions}
-              />
+              <OverviewTab transactions={transactions} />
             </div>
           )}
 

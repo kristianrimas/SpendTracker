@@ -1,17 +1,62 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, PiggyBank, Wallet, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TrendingUp, TrendingDown, PiggyBank, Wallet, Shield, Calendar, X } from "lucide-react";
 import { Transaction, getCategoryById } from "@/types";
 
 type OverviewTabProps = {
-  transactions: Transaction[]; // Current month only
-  allTransactions: Transaction[]; // All transactions for cumulative totals
+  transactions: Transaction[]; // All transactions
 };
 
-export function OverviewTab({ transactions, allTransactions }: OverviewTabProps) {
-  // Calculate overview from transactions
-  const overview = transactions.reduce(
+export function OverviewTab({ transactions }: OverviewTabProps) {
+  // Default to current month
+  const getCurrentMonthKey = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthKey());
+
+  // Get available months from transactions
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    transactions.forEach((t) => {
+      const date = new Date(t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      months.add(monthKey);
+    });
+    // Always include current month even if no transactions
+    months.add(getCurrentMonthKey());
+    return Array.from(months).sort().reverse();
+  }, [transactions]);
+
+  // Format month for display
+  const formatMonth = (monthKey: string) => {
+    const [year, month] = monthKey.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  };
+
+  // Filter transactions for selected month
+  const monthTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      const date = new Date(t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      return monthKey === selectedMonth;
+    });
+  }, [transactions, selectedMonth]);
+
+  // Calculate overview from filtered transactions
+  const overview = monthTransactions.reduce(
     (acc, t) => {
       if (t.type === "income") {
         acc.totalIncome += t.amount;
@@ -28,7 +73,7 @@ export function OverviewTab({ transactions, allTransactions }: OverviewTabProps)
   const remaining = overview.totalIncome - overview.totalExpenses - overview.totalSaved;
 
   // Calculate cumulative savings and emergency fund (all-time)
-  const cumulativeTotals = allTransactions.reduce(
+  const cumulativeTotals = transactions.reduce(
     (acc, t) => {
       // Add deposits to savings
       if (t.type === "savings" && t.category_id === "savings") {
@@ -52,7 +97,7 @@ export function OverviewTab({ transactions, allTransactions }: OverviewTabProps)
   );
 
   // Calculate spending by category for visualization
-  const expensesByCategory = transactions
+  const expensesByCategory = monthTransactions
     .filter((t) => t.type === "expense")
     .reduce((acc, t) => {
       acc[t.category_id] = (acc[t.category_id] || 0) + t.amount;
@@ -65,13 +110,39 @@ export function OverviewTab({ transactions, allTransactions }: OverviewTabProps)
 
   const maxExpense = sortedExpenses[0]?.[1] || 1;
 
-  // Recent transactions (last 5)
-  const recentTransactions = [...transactions]
+  // Recent transactions (last 5 for selected month)
+  const recentTransactions = [...monthTransactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
 
   return (
     <div className="space-y-4">
+      {/* Month Selector */}
+      <div className="flex items-center gap-2">
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select month" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableMonths.map((month) => (
+              <SelectItem key={month} value={month}>
+                {formatMonth(month)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedMonth !== getCurrentMonthKey() && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSelectedMonth(getCurrentMonthKey())}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
       {/* Monthly Overview Cards */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="bg-income-muted border-0">

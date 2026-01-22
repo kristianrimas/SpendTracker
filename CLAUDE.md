@@ -15,6 +15,12 @@ npm run lint       # Run ESLint
 npm start          # Serve production build
 ```
 
+## Deployment
+
+Vercel is connected to the GitHub repo. Pushing to `main` automatically triggers a production deployment.
+
+Production URL: https://spendtracker.syntyxlabs.com
+
 ## Architecture
 
 ### Tech Stack

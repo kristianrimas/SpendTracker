@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Transaction, CATEGORIES, getCategoryById } from "@/types";
-import { Trash2, Filter, X } from "lucide-react";
+import { Trash2, Filter, X, Calendar } from "lucide-react";
 
 type HistoryTabProps = {
   transactions: Transaction[];
@@ -20,14 +20,44 @@ type HistoryTabProps = {
 
 export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProps) {
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterMonth, setFilterMonth] = useState<string>("all");
   const [swipedId, setSwipedId] = useState<string | null>(null);
+
+  // Get available months from transactions
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    transactions.forEach((t) => {
+      const date = new Date(t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      months.add(monthKey);
+    });
+    return Array.from(months).sort().reverse(); // Most recent first
+  }, [transactions]);
+
+  // Format month for display (e.g., "2025-01" -> "January 2025")
+  const formatMonth = (monthKey: string) => {
+    const [year, month] = monthKey.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  };
 
   // Group transactions by date
   const groupedTransactions = useMemo(() => {
-    const filtered =
-      filterCategory === "all"
-        ? transactions
-        : transactions.filter((t) => t.category_id === filterCategory);
+    let filtered = transactions;
+
+    // Filter by month
+    if (filterMonth !== "all") {
+      filtered = filtered.filter((t) => {
+        const date = new Date(t.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        return monthKey === filterMonth;
+      });
+    }
+
+    // Filter by category
+    if (filterCategory !== "all") {
+      filtered = filtered.filter((t) => t.category_id === filterCategory);
+    }
 
     const sorted = [...filtered].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -43,7 +73,7 @@ export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProp
     });
 
     return groups;
-  }, [transactions, filterCategory]);
+  }, [transactions, filterCategory, filterMonth]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -83,31 +113,61 @@ export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProp
 
   return (
     <div className="space-y-4">
-      {/* Filter */}
-      <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Filter by category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {CATEGORIES.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                {category.emoji} {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {filterCategory !== "all" && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setFilterCategory("all")}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
+      {/* Filters */}
+      <div className="space-y-2">
+        {/* Month Filter */}
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={filterMonth} onValueChange={setFilterMonth}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filter by month" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+              {availableMonths.map((month) => (
+                <SelectItem key={month} value={month}>
+                  {formatMonth(month)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filterMonth !== "all" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setFilterMonth("all")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filter by category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {CATEGORIES.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.emoji} {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filterCategory !== "all" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setFilterCategory("all")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Transaction Groups */}
