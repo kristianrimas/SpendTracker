@@ -86,6 +86,27 @@ export function AddTransactionTab({ onAddTransaction, presets = [] }: AddTransac
 
   return (
     <div className="space-y-6">
+      {/* Amount Input - Large and Prominent */}
+      <Card className="border-0 bg-secondary">
+        <CardContent className="p-6">
+          <Label htmlFor="amount" className="text-sm text-muted-foreground">
+            Amount
+          </Label>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-4xl font-bold text-muted-foreground">$</span>
+            <Input
+              id="amount"
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="text-4xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/30"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quick Presets */}
       {presets.length > 0 && (
         <div>
@@ -114,27 +135,6 @@ export function AddTransactionTab({ onAddTransaction, presets = [] }: AddTransac
           </div>
         </div>
       )}
-
-      {/* Amount Input - Large and Prominent */}
-      <Card className="border-0 bg-secondary">
-        <CardContent className="p-6">
-          <Label htmlFor="amount" className="text-sm text-muted-foreground">
-            Amount
-          </Label>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-4xl font-bold text-muted-foreground">$</span>
-            <Input
-              id="amount"
-              type="number"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="text-4xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/30"
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Category Selection */}
       <div className="space-y-4">
