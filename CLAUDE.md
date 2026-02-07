@@ -19,9 +19,9 @@ npm start          # Serve production build
 
 Production URL: https://spendtracker.syntyxlabs.com
 
-Vercel is connected to the GitHub repo - pushing to `main` should auto-deploy. If auto-deploy doesn't trigger, deploy manually:
+Auto-deploy from GitHub is unreliable. After pushing to `main`, always deploy manually:
 ```bash
-vercel --prod
+git push && vercel --prod
 ```
 
 ## Architecture

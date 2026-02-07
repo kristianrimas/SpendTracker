@@ -67,7 +67,7 @@ export const CATEGORIES: Category[] = [
   { id: "other-income", name: "Others", emoji: "📦", type: "income" },
 
   // Fixed Bills
-  { id: "fixed-bills", name: "Fixed Bills", emoji: "🏠", type: "expense", subcategories: ["Rent/Mortgage", "Utilities", "Internet/Mobile", "Insurance", "Subscriptions"] },
+  { id: "fixed-bills", name: "Fixed Bills", emoji: "🏠", type: "expense", subcategories: ["Rent/Mortgage", "Utilities", "Internet/Mobile", "Insurance", "Subscriptions", "Fixed Fees"] },
 
   // Variable Expenses
   { id: "food", name: "Food", emoji: "🍽️", type: "expense", subcategories: ["Groceries", "Eating Out", "Coffee/Snacks"] },

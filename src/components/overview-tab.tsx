@@ -352,8 +352,10 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
                       <span className="text-xl">{category?.emoji || "📝"}</span>
                       <div>
                         <p className="text-sm font-medium">{category?.name || "Unknown"}</p>
-                        {transaction.note && (
-                          <p className="text-xs text-muted-foreground">{transaction.note}</p>
+                        {(transaction.subcategory || transaction.note) && (
+                          <p className="text-xs text-muted-foreground">
+                            {[transaction.subcategory, transaction.note].filter(Boolean).join(" · ")}
+                          </p>
                         )}
                       </div>
                     </div>
