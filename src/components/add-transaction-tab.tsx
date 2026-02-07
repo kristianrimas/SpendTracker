@@ -20,16 +20,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CATEGORIES, Category, Transaction, FundedFrom, Preset, getCategoryById } from "@/types";
+import { CATEGORIES, Category, Transaction, FundedFrom, Preset, getCategoryById, CurrencyCode } from "@/types";
+import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
 import { Check, ChevronRight, Zap, CreditCard } from "lucide-react";
 
 type AddTransactionTabProps = {
   onAddTransaction: (transaction: Omit<Transaction, "id" | "created_at" | "user_id">) => void;
   presets?: Preset[];
   totalDebt?: number;
+  currency: CurrencyCode;
 };
 
-export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 0 }: AddTransactionTabProps) {
+export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 0, currency }: AddTransactionTabProps) {
   const [amount, setAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
                 <span className="text-sm font-medium">Outstanding Debt</span>
               </div>
               <span className="text-lg font-bold text-expense">
-                ${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                {formatCurrency(totalDebt, currency)}
               </span>
             </div>
             <Button
@@ -149,14 +151,14 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
           <DialogHeader>
             <DialogTitle>Pay Debt</DialogTitle>
             <DialogDescription>
-              Enter the amount you want to pay towards your debt of ${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}.
+              Enter the amount you want to pay towards your debt of {formatCurrency(totalDebt, currency)}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="debtAmount">Payment Amount</Label>
               <div className="flex items-center gap-2">
-                <span className="text-xl font-medium text-muted-foreground">$</span>
+                <span className="text-xl font-medium text-muted-foreground">{getCurrencySymbol(currency)}</span>
                 <Input
                   id="debtAmount"
                   type="number"
@@ -182,7 +184,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
               onClick={handlePayDebt}
               disabled={!debtPaymentAmount || parseFloat(debtPaymentAmount) <= 0 || parseFloat(debtPaymentAmount) > totalDebt}
             >
-              Pay ${debtPaymentAmount ? parseFloat(debtPaymentAmount).toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}
+              Pay {formatCurrency(debtPaymentAmount ? parseFloat(debtPaymentAmount) : 0, currency)}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -195,7 +197,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
             Amount
           </Label>
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-4xl font-bold text-muted-foreground">$</span>
+            <span className="text-4xl font-bold text-muted-foreground">{getCurrencySymbol(currency)}</span>
             <Input
               id="amount"
               type="number"
@@ -229,7 +231,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
                   <span className="mr-1.5">{category?.emoji || "📝"}</span>
                   <span className="text-sm">{preset.name}</span>
                   <span className="ml-1.5 text-xs text-muted-foreground">
-                    ${preset.amount.toLocaleString()}
+                    {formatCurrency(preset.amount, currency)}
                   </span>
                 </Button>
               );

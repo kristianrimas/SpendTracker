@@ -88,6 +88,29 @@ export const CATEGORIES: Category[] = [
   { id: "debt_payment", name: "Debt Payment", emoji: "💸", type: "debt_payment" },
 ];
 
+// Currency support
+export type CurrencyCode = "USD" | "AUD" | "PHP" | "EUR" | "GBP";
+
+export type CurrencyConfig = {
+  code: CurrencyCode;
+  symbol: string;
+  name: string;
+};
+
+export const CURRENCIES: CurrencyConfig[] = [
+  { code: "USD", symbol: "$", name: "US Dollar" },
+  { code: "AUD", symbol: "$", name: "Australian Dollar" },
+  { code: "PHP", symbol: "₱", name: "Philippine Peso" },
+  { code: "EUR", symbol: "€", name: "Euro" },
+  { code: "GBP", symbol: "£", name: "British Pound" },
+];
+
+export const DEFAULT_CURRENCY: CurrencyCode = "USD";
+
+export const getCurrencyConfig = (code: CurrencyCode): CurrencyConfig => {
+  return CURRENCIES.find((c) => c.code === code) || CURRENCIES[0];
+};
+
 // Helper to get category by id
 export const getCategoryById = (id: string): Category | undefined => {
   return CATEGORIES.find((cat) => cat.id === id);

@@ -10,15 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Transaction, CATEGORIES, getCategoryById } from "@/types";
+import { Transaction, CATEGORIES, getCategoryById, CurrencyCode } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 import { Trash2, Filter, X, Calendar } from "lucide-react";
 
 type HistoryTabProps = {
   transactions: Transaction[];
   onDeleteTransaction: (id: string) => void;
+  currency: CurrencyCode;
 };
 
-export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProps) {
+export function HistoryTab({ transactions, onDeleteTransaction, currency }: HistoryTabProps) {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>("all");
   const [swipedId, setSwipedId] = useState<string | null>(null);
@@ -190,9 +192,7 @@ export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProp
                   dayTotal >= 0 ? "text-income" : "text-expense"
                 }`}
               >
-                {dayTotal >= 0 ? "+" : ""}${dayTotal.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                })}
+                {dayTotal >= 0 ? "+" : ""}{formatCurrency(dayTotal, currency)}
               </span>
             </div>
 
@@ -268,10 +268,7 @@ export function HistoryTab({ transactions, onDeleteTransaction }: HistoryTabProp
                               : "text-expense"
                           }`}
                         >
-                          {transaction.type === "income" ? "+" : "-"}$
-                          {transaction.amount.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })}
+                          {transaction.type === "income" ? "+" : "-"}{formatCurrency(transaction.amount, currency)}
                         </span>
                       </div>
                     </div>

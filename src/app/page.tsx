@@ -10,7 +10,8 @@ import { AddTransactionTab } from "@/components/add-transaction-tab";
 import { HistoryTab } from "@/components/history-tab";
 import { InsightsTab } from "@/components/insights-tab";
 import { SettingsTab } from "@/components/settings-tab";
-import { Transaction, Preset, MonthStatus, getCategoryById } from "@/types";
+import { Transaction, Preset, MonthStatus, getCategoryById, CurrencyCode, DEFAULT_CURRENCY } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 type Tab = "overview" | "add" | "history" | "insights" | "settings";
@@ -22,6 +23,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [isLoaded, setIsLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY);
 
   const supabase = createClient();
 
@@ -35,6 +37,12 @@ export default function HomePage() {
         return;
       }
       setUserId(user.id);
+
+      // Load currency preference from user metadata
+      const userCurrency = user.user_metadata?.currency as CurrencyCode | undefined;
+      if (userCurrency) {
+        setCurrency(userCurrency);
+      }
 
       // Fetch transactions
       const { data: transactionsData, error: transactionsError } = await supabase
@@ -97,7 +105,7 @@ export default function HomePage() {
 
     // Show toast
     const category = getCategoryById(newTransaction.category_id);
-    const amountFormatted = `$${newTransaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+    const amountFormatted = formatCurrency(newTransaction.amount, currency);
     toast.success(`${category?.emoji || ""} ${amountFormatted} added`, {
       description: category?.name || "Transaction recorded",
     });
@@ -236,6 +244,21 @@ export default function HomePage() {
     }
   }, [userId, presets, supabase]);
 
+  const handleCurrencyChange = useCallback(async (newCurrency: CurrencyCode) => {
+    const oldCurrency = currency;
+    setCurrency(newCurrency); // Optimistic update
+
+    const { error } = await supabase.auth.updateUser({
+      data: { currency: newCurrency },
+    });
+
+    if (error) {
+      console.error("Error updating currency:", error);
+      toast.error("Failed to update currency");
+      setCurrency(oldCurrency); // Rollback
+    }
+  }, [currency, supabase]);
+
   // Calculate total debt (all-time)
   const totalDebt = useMemo(() => {
     const debtFromMonthStatuses = monthStatuses.reduce((sum, ms) => sum + (ms.debt_amount || 0), 0);
@@ -323,7 +346,7 @@ export default function HomePage() {
         });
 
         toast.success(`${formatMonth(month)} closed`, {
-          description: `$${remaining.toLocaleString("en-US", { minimumFractionDigits: 2 })} auto-saved`,
+          description: `${formatCurrency(remaining, currency)} auto-saved`,
         });
       } else if (remaining < 0) {
         // Record debt in month_status
@@ -361,7 +384,7 @@ export default function HomePage() {
         });
 
         toast.success(`${formatMonth(month)} closed`, {
-          description: `$${debtAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })} added to debt`,
+          description: `${formatCurrency(debtAmount, currency)} added to debt`,
         });
       } else {
         // Remaining is exactly 0 - just mark as processed
@@ -436,6 +459,7 @@ export default function HomePage() {
                 monthStatuses={monthStatuses}
                 totalDebt={totalDebt}
                 onCloseMonth={handleCloseMonth}
+                currency={currency}
               />
             </div>
           )}
@@ -446,6 +470,7 @@ export default function HomePage() {
                 onAddTransaction={handleAddTransaction}
                 presets={presets}
                 totalDebt={totalDebt}
+                currency={currency}
               />
             </div>
           )}
@@ -455,19 +480,20 @@ export default function HomePage() {
               <HistoryTab
                 transactions={transactions}
                 onDeleteTransaction={handleDeleteTransaction}
+                currency={currency}
               />
             </div>
           )}
 
           {activeTab === "insights" && (
             <div className="animate-in fade-in duration-200">
-              <InsightsTab transactions={transactions} />
+              <InsightsTab transactions={transactions} currency={currency} />
             </div>
           )}
 
           {activeTab === "settings" && (
             <div className="animate-in fade-in duration-200">
-              <SettingsTab presets={presets} onPresetsChange={handlePresetsChange} />
+              <SettingsTab presets={presets} onPresetsChange={handlePresetsChange} currency={currency} onCurrencyChange={handleCurrencyChange} />
             </div>
           )}
         </div>

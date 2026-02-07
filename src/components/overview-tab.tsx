@@ -11,16 +11,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TrendingUp, TrendingDown, PiggyBank, Wallet, Shield, Calendar, X, CreditCard, AlertTriangle } from "lucide-react";
-import { Transaction, MonthStatus, getCategoryById } from "@/types";
+import { Transaction, MonthStatus, getCategoryById, CurrencyCode } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 
 type OverviewTabProps = {
   transactions: Transaction[]; // All transactions
   monthStatuses: MonthStatus[]; // Month processing statuses
   totalDebt: number; // All-time debt
   onCloseMonth: (month: string, remaining: number) => void;
+  currency: CurrencyCode;
 };
 
-export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMonth }: OverviewTabProps) {
+export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMonth, currency }: OverviewTabProps) {
   // Default to current month
   const getCurrentMonthKey = () => {
     const now = new Date();
@@ -183,7 +185,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
               <span className="text-sm font-medium">Income</span>
             </div>
             <p className="text-2xl font-bold text-income">
-              ${overview.totalIncome.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {formatCurrency(overview.totalIncome, currency)}
             </p>
           </CardContent>
         </Card>
@@ -195,7 +197,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
               <span className="text-sm font-medium">Spent</span>
             </div>
             <p className="text-2xl font-bold text-expense">
-              ${overview.totalExpenses.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {formatCurrency(overview.totalExpenses, currency)}
             </p>
           </CardContent>
         </Card>
@@ -207,7 +209,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
               <span className="text-sm font-medium">Saved</span>
             </div>
             <p className="text-2xl font-bold text-savings">
-              ${overview.totalSaved.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {formatCurrency(overview.totalSaved, currency)}
             </p>
           </CardContent>
         </Card>
@@ -219,7 +221,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
               <span className="text-sm font-medium">Remaining</span>
             </div>
             <p className={`text-2xl font-bold ${remaining >= 0 ? "text-foreground" : "text-expense"}`}>
-              ${remaining.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {formatCurrency(remaining, currency)}
             </p>
           </CardContent>
         </Card>
@@ -237,8 +239,8 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {remaining >= 0
-                    ? `$${remaining.toLocaleString("en-US", { minimumFractionDigits: 2 })} will be auto-saved`
-                    : `$${Math.abs(remaining).toLocaleString("en-US", { minimumFractionDigits: 2 })} will become debt`}
+                    ? `${formatCurrency(remaining, currency)} will be auto-saved`
+                    : `${formatCurrency(Math.abs(remaining), currency)} will become debt`}
                 </p>
               </div>
               <Button
@@ -263,7 +265,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
               <span className="text-sm font-medium">Total Savings</span>
             </div>
             <p className="text-2xl font-bold text-savings">
-              ${cumulativeTotals.totalSavings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {formatCurrency(cumulativeTotals.totalSavings, currency)}
             </p>
             {Object.entries(cumulativeTotals.savingsBySubcategory).filter(([, amt]) => amt > 0).length > 0 && (
               <div className="mt-2 space-y-0.5">
@@ -273,7 +275,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
                   .map(([sub, amt]) => (
                     <div key={sub} className="flex justify-between text-xs text-muted-foreground">
                       <span>{sub}</span>
-                      <span>${amt.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                      <span>{formatCurrency(amt, currency)}</span>
                     </div>
                   ))}
               </div>
@@ -289,7 +291,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
               <span className="text-sm font-medium">Emergency Fund</span>
             </div>
             <p className="text-2xl font-bold text-amber-500">
-              ${cumulativeTotals.totalEmergencyFund.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {formatCurrency(cumulativeTotals.totalEmergencyFund, currency)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">All-time</p>
           </CardContent>
@@ -305,7 +307,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
               <span className="text-sm font-medium">Total Debt</span>
             </div>
             <p className="text-2xl font-bold text-expense">
-              ${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {formatCurrency(totalDebt, currency)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Carried over from past months</p>
           </CardContent>
@@ -330,7 +332,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
                         <span>{category.name}</span>
                       </span>
                       <span className="font-medium">
-                        ${amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        {formatCurrency(amount, currency)}
                       </span>
                     </div>
                     <div className="h-2 bg-secondary rounded-full overflow-hidden">
@@ -390,8 +392,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
                             : "text-expense"
                         }`}
                       >
-                        {transaction.type === "income" ? "+" : "-"}$
-                        {transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        {transaction.type === "income" ? "+" : "-"}{formatCurrency(transaction.amount, currency)}
                       </span>
                     </div>
                   </div>

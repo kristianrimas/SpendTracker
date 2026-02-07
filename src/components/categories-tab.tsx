@@ -4,11 +4,13 @@ import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { Transaction, CATEGORIES, getCategoryById, Category } from "@/types";
+import { Transaction, CATEGORIES, getCategoryById, Category, CurrencyCode } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 import { ChevronRight } from "lucide-react";
 
 type CategoriesTabProps = {
   transactions: Transaction[];
+  currency: CurrencyCode;
 };
 
 type CategorySummary = {
@@ -18,7 +20,7 @@ type CategorySummary = {
   transactions: Transaction[];
 };
 
-export function CategoriesTab({ transactions }: CategoriesTabProps) {
+export function CategoriesTab({ transactions, currency }: CategoriesTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<CategorySummary | null>(null);
 
   // Calculate totals by category
@@ -108,7 +110,7 @@ export function CategoriesTab({ transactions }: CategoriesTabProps) {
               </div>
               <div className="flex items-center gap-2">
                 <span className={`font-semibold ${colorClass}`}>
-                  ${summary.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {formatCurrency(summary.total, currency)}
                 </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -135,7 +137,7 @@ export function CategoriesTab({ transactions }: CategoriesTabProps) {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-muted-foreground">Income</h3>
                 <span className="text-income font-semibold">
-                  ${totalIncome.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {formatCurrency(totalIncome, currency)}
                 </span>
               </div>
               {renderCategoryList(incomeCategories, maxIncome, "text-income", "bg-income")}
@@ -150,7 +152,7 @@ export function CategoriesTab({ transactions }: CategoriesTabProps) {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-muted-foreground">Expenses</h3>
                 <span className="text-expense font-semibold">
-                  ${totalExpense.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {formatCurrency(totalExpense, currency)}
                 </span>
               </div>
               {renderCategoryList(expenseCategories, maxExpense, "text-expense", "bg-expense")}
@@ -165,7 +167,7 @@ export function CategoriesTab({ transactions }: CategoriesTabProps) {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-muted-foreground">Savings</h3>
                 <span className="text-savings font-semibold">
-                  ${totalSavings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {formatCurrency(totalSavings, currency)}
                 </span>
               </div>
               {renderCategoryList(savingsCategories, maxSavings, "text-savings", "bg-savings")}
@@ -205,9 +207,7 @@ export function CategoriesTab({ transactions }: CategoriesTabProps) {
                       : "text-expense"
                   }`}
                 >
-                  ${selectedCategory.total.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCurrency(selectedCategory.total, currency)}
                 </span>
               </div>
 
@@ -237,7 +237,7 @@ export function CategoriesTab({ transactions }: CategoriesTabProps) {
                             : "text-expense"
                         }`}
                       >
-                        ${t.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        {formatCurrency(t.amount, currency)}
                       </span>
                     </div>
                   ))}

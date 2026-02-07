@@ -8,21 +8,31 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Preset, CATEGORIES, getCategoryById, Category, FundedFrom } from "@/types";
+import { Preset, CATEGORIES, getCategoryById, Category, FundedFrom, CurrencyCode, CURRENCIES } from "@/types";
+import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
 import { Plus, Pencil, Trash2, LogOut, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SettingsTabProps = {
   presets: Preset[];
   onPresetsChange: (presets: Preset[]) => void;
+  currency: CurrencyCode;
+  onCurrencyChange: (currency: CurrencyCode) => void;
 };
 
-export function SettingsTab({ presets, onPresetsChange }: SettingsTabProps) {
+export function SettingsTab({ presets, onPresetsChange, currency, onCurrencyChange }: SettingsTabProps) {
   const router = useRouter();
   const [isAddingPreset, setIsAddingPreset] = useState(false);
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
@@ -135,7 +145,7 @@ export function SettingsTab({ presets, onPresetsChange }: SettingsTabProps) {
                       <div>
                         <p className="font-medium">{preset.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          ${preset.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          {formatCurrency(preset.amount, currency)}
                           {preset.funded_from && preset.funded_from !== "income" && (
                             <span className="ml-1 text-amber-500">
                               (from {preset.funded_from === "savings" ? "Savings" : "EF"})
@@ -168,6 +178,27 @@ export function SettingsTab({ presets, onPresetsChange }: SettingsTabProps) {
             })}
           </div>
         )}
+      </div>
+
+      {/* Currency Section */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Currency</h2>
+        <Card>
+          <CardContent className="p-4">
+            <Select value={currency} onValueChange={(value) => onCurrencyChange(value as CurrencyCode)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.code} ({c.symbol}) — {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Account Section */}
@@ -222,7 +253,7 @@ export function SettingsTab({ presets, onPresetsChange }: SettingsTabProps) {
             <div>
               <Label htmlFor="preset-amount">Amount</Label>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xl font-bold text-muted-foreground">$</span>
+                <span className="text-xl font-bold text-muted-foreground">{getCurrencySymbol(currency)}</span>
                 <Input
                   id="preset-amount"
                   type="number"

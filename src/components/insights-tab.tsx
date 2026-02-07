@@ -9,7 +9,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { Transaction, CATEGORIES, getCategoryById, Category } from "@/types";
+import { Transaction, CATEGORIES, getCategoryById, Category, CurrencyCode } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 import {
   ChevronRight,
   ChevronDown,
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 
 type InsightsTabProps = {
   transactions: Transaction[];
+  currency: CurrencyCode;
 };
 
 type MonthOption = {
@@ -38,7 +40,7 @@ type CategorySummary = {
   transactions: Transaction[];
 };
 
-export function InsightsTab({ transactions }: InsightsTabProps) {
+export function InsightsTab({ transactions, currency }: InsightsTabProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategorySummary | null>(null);
@@ -191,7 +193,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`font-semibold ${colorClass}`}>
-                    ${summary.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {formatCurrency(summary.total, currency)}
                   </span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
@@ -232,7 +234,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
               <TrendingUp className="h-4 w-4 text-income mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Income</p>
               <p className="text-sm font-bold text-income">
-                ${periodTotals.income.toLocaleString()}
+                {formatCurrency(periodTotals.income, currency)}
               </p>
             </CardContent>
           </Card>
@@ -241,7 +243,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
               <TrendingDown className="h-4 w-4 text-expense mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Expenses</p>
               <p className="text-sm font-bold text-expense">
-                ${periodTotals.expenses.toLocaleString()}
+                {formatCurrency(periodTotals.expenses, currency)}
               </p>
             </CardContent>
           </Card>
@@ -250,7 +252,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
               <PiggyBank className="h-4 w-4 text-savings mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Saved</p>
               <p className="text-sm font-bold text-savings">
-                ${periodTotals.savings.toLocaleString()}
+                {formatCurrency(periodTotals.savings, currency)}
               </p>
             </CardContent>
           </Card>
@@ -266,13 +268,13 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
               <div>
                 <p className="text-xs text-muted-foreground">Total Savings</p>
                 <p className="text-lg font-bold text-savings">
-                  ${cumulativeSavings.savings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {formatCurrency(cumulativeSavings.savings, currency)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Emergency Fund</p>
                 <p className="text-lg font-bold text-amber-500">
-                  ${cumulativeSavings.emergencyFund.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {formatCurrency(cumulativeSavings.emergencyFund, currency)}
                 </p>
               </div>
             </div>
@@ -297,7 +299,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Income</h3>
                     <span className="text-income font-semibold">
-                      ${periodTotals.income.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      {formatCurrency(periodTotals.income, currency)}
                     </span>
                   </div>
                   {renderCategoryList(incomeCategories, "text-income", "bg-income")}
@@ -312,7 +314,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Expenses</h3>
                     <span className="text-expense font-semibold">
-                      ${periodTotals.expenses.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      {formatCurrency(periodTotals.expenses, currency)}
                     </span>
                   </div>
                   {renderCategoryList(expenseCategories, "text-expense", "bg-expense")}
@@ -327,7 +329,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Savings</h3>
                     <span className="text-savings font-semibold">
-                      ${periodTotals.savings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      {formatCurrency(periodTotals.savings, currency)}
                     </span>
                   </div>
                   {renderCategoryList(savingsCategories, "text-savings", "bg-savings")}
@@ -401,9 +403,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
                       : "text-expense"
                   }`}
                 >
-                  ${selectedCategory.total.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCurrency(selectedCategory.total, currency)}
                 </span>
               </div>
 
@@ -433,7 +433,7 @@ export function InsightsTab({ transactions }: InsightsTabProps) {
                             : "text-expense"
                         }`}
                       >
-                        ${t.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        {formatCurrency(t.amount, currency)}
                       </span>
                     </div>
                   ))}
