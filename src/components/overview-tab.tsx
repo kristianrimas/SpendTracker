@@ -106,6 +106,9 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
       // Add deposits to savings
       if (t.type === "savings" && t.category_id === "savings") {
         acc.totalSavings += t.amount;
+        // Track by subcategory
+        const sub = t.subcategory || "General";
+        acc.savingsBySubcategory[sub] = (acc.savingsBySubcategory[sub] || 0) + t.amount;
       }
       // Add deposits to emergency fund
       if (t.type === "savings" && t.category_id === "emergency_fund") {
@@ -121,7 +124,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
       }
       return acc;
     },
-    { totalSavings: 0, totalEmergencyFund: 0 }
+    { totalSavings: 0, totalEmergencyFund: 0, savingsBySubcategory: {} as Record<string, number> }
   );
 
   // Calculate spending by category for visualization
@@ -262,6 +265,19 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
             <p className="text-2xl font-bold text-savings">
               ${cumulativeTotals.totalSavings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
             </p>
+            {Object.entries(cumulativeTotals.savingsBySubcategory).filter(([, amt]) => amt > 0).length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                {Object.entries(cumulativeTotals.savingsBySubcategory)
+                  .filter(([, amt]) => amt > 0)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([sub, amt]) => (
+                    <div key={sub} className="flex justify-between text-xs text-muted-foreground">
+                      <span>{sub}</span>
+                      <span>${amt.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground mt-1">All-time</p>
           </CardContent>
         </Card>

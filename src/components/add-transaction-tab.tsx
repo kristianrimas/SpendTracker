@@ -35,7 +35,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [fundedFrom, setFundedFrom] = useState<FundedFrom>("income");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(new Date().toLocaleDateString("en-CA"));
   const [subcategorySheetOpen, setSubcategorySheetOpen] = useState(false);
   const [showPayDebtDialog, setShowPayDebtDialog] = useState(false);
   const [debtPaymentAmount, setDebtPaymentAmount] = useState("");
@@ -90,7 +90,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
     setSelectedSubcategory(null);
     setFundedFrom("income");
     setNote("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(new Date().toLocaleDateString("en-CA"));
   };
 
   const isValid = amount && parseFloat(amount) > 0 && selectedCategory;
@@ -104,7 +104,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
       type: "debt_payment",
       category_id: "debt_payment",
       note: "Debt payment",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toLocaleDateString("en-CA"),
     };
 
     onAddTransaction(debtPaymentTransaction);

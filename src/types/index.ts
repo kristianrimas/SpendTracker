@@ -81,7 +81,7 @@ export const CATEGORIES: Category[] = [
   { id: "other-expense", name: "Others", emoji: "📦", type: "expense" },
 
   // Savings (treated as outflow, not leftover)
-  { id: "savings", name: "Savings", emoji: "💾", type: "savings", subcategories: ["General", "Investments", "Retirement"] },
+  { id: "savings", name: "Savings", emoji: "💾", type: "savings", subcategories: ["General", "Investments", "Retirement", "Leisure"] },
   { id: "emergency_fund", name: "Emergency Fund", emoji: "🛡️", type: "savings" },
 
   // Debt Payment (system category for paying off debt)
