@@ -64,6 +64,7 @@ export const CATEGORIES: Category[] = [
   // Income
   { id: "salary", name: "Salary", emoji: "💰", type: "income", subcategories: ["Primary", "Bonus", "Commission"] },
   { id: "side-income", name: "Side Income", emoji: "💼", type: "income", subcategories: ["Freelance", "Other"] },
+  { id: "other-income", name: "Others", emoji: "📦", type: "income" },
 
   // Fixed Bills
   { id: "fixed-bills", name: "Fixed Bills", emoji: "🏠", type: "expense", subcategories: ["Rent/Mortgage", "Utilities", "Internet/Mobile", "Insurance", "Subscriptions"] },
@@ -77,6 +78,7 @@ export const CATEGORIES: Category[] = [
   { id: "health", name: "Health", emoji: "🏥", type: "expense", subcategories: ["Doctor", "Medication", "Gym/Fitness", "Therapy"] },
   { id: "shopping", name: "Shopping", emoji: "🛒", type: "expense", subcategories: ["Home", "Electronics", "Gifts", "Other"] },
   { id: "debt", name: "Debt", emoji: "💳", type: "expense", subcategories: ["Credit Card", "Personal Loans", "Student Loans"] },
+  { id: "other-expense", name: "Others", emoji: "📦", type: "expense" },
 
   // Savings (treated as outflow, not leftover)
   { id: "savings", name: "Savings", emoji: "💾", type: "savings", subcategories: ["General", "Investments", "Retirement"] },
