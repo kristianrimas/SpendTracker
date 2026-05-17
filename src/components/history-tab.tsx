@@ -12,15 +12,17 @@ import {
 } from "@/components/ui/select";
 import { Transaction, CATEGORIES, getCategoryById, CurrencyCode } from "@/types";
 import { formatCurrency } from "@/lib/currency";
-import { Trash2, Filter, X, Calendar } from "lucide-react";
+import { Trash2, Filter, X, Calendar, Loader2, RotateCw } from "lucide-react";
 
 type HistoryTabProps = {
   transactions: Transaction[];
   onDeleteTransaction: (id: string) => void;
   currency: CurrencyCode;
+  onRetryTransaction: (id: string) => void;
+  onDiscardTransaction: (id: string) => void;
 };
 
-export function HistoryTab({ transactions, onDeleteTransaction, currency }: HistoryTabProps) {
+export function HistoryTab({ transactions, onDeleteTransaction, currency, onRetryTransaction, onDiscardTransaction }: HistoryTabProps) {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>("all");
   const [swipedId, setSwipedId] = useState<string | null>(null);
@@ -175,6 +177,8 @@ export function HistoryTab({ transactions, onDeleteTransaction, currency }: Hist
       {/* Transaction Groups */}
       {Object.entries(groupedTransactions).map(([date, dayTransactions]) => {
         const dayTotal = dayTransactions.reduce((sum, t) => {
+          // Failed (un-saved) rows must not count toward totals.
+          if (t._status === "failed") return sum;
           if (t.type === "income") return sum + t.amount;
           // debt_payment, savings, and expenses all subtract from the total
           return sum - t.amount;
@@ -202,35 +206,47 @@ export function HistoryTab({ transactions, onDeleteTransaction, currency }: Hist
                 {dayTransactions.map((transaction) => {
                   const category = getCategoryById(transaction.category_id);
                   const isSwipedOpen = swipedId === transaction.id;
+                  const isSaving = transaction._status === "saving";
+                  const isFailed = transaction._status === "failed";
+                  // Saving / failed rows are not yet in the DB — no swipe-to-delete.
+                  const interactive = !isSaving && !isFailed;
 
                   return (
                     <div
                       key={transaction.id}
-                      className="relative overflow-hidden"
+                      className={`relative overflow-hidden ${
+                        isFailed ? "border-l-2 border-l-expense" : ""
+                      }`}
                     >
-                      {/* Delete Button (behind) */}
-                      <div
-                        className={`absolute inset-y-0 right-0 flex items-center bg-destructive transition-all duration-200 ${
-                          isSwipedOpen ? "w-20" : "w-0"
-                        }`}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-full h-full text-white hover:bg-destructive/90"
-                          onClick={() => handleDelete(transaction.id)}
+                      {/* Delete Button (behind) - only for saved rows */}
+                      {interactive && (
+                        <div
+                          className={`absolute inset-y-0 right-0 flex items-center bg-destructive transition-all duration-200 ${
+                            isSwipedOpen ? "w-20" : "w-0"
+                          }`}
                         >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-full h-full text-white hover:bg-destructive/90"
+                            onClick={() => handleDelete(transaction.id)}
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      )}
 
                       {/* Transaction Row */}
                       <div
-                        className={`flex items-center justify-between p-4 bg-card transition-transform duration-200 cursor-pointer ${
-                          isSwipedOpen ? "-translate-x-20" : "translate-x-0"
-                        }`}
-                        onClick={() =>
-                          setSwipedId(isSwipedOpen ? null : transaction.id)
+                        className={`flex items-center justify-between p-4 bg-card transition-transform duration-200 ${
+                          interactive ? "cursor-pointer" : ""
+                        } ${
+                          interactive && isSwipedOpen ? "-translate-x-20" : "translate-x-0"
+                        } ${isSaving ? "opacity-70" : ""} ${isFailed ? "opacity-80" : ""}`}
+                        onClick={
+                          interactive
+                            ? () => setSwipedId(isSwipedOpen ? null : transaction.id)
+                            : undefined
                         }
                       >
                         <div className="flex items-center gap-3">
@@ -240,6 +256,17 @@ export function HistoryTab({ transactions, onDeleteTransaction, currency }: Hist
                               <p className="font-medium">{category?.name || "Unknown"}</p>
                               {transaction.is_auto && (
                                 <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Auto</span>
+                              )}
+                              {isSaving && (
+                                <span className="text-xs text-muted-foreground animate-pulse flex items-center gap-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Saving…
+                                </span>
+                              )}
+                              {isFailed && (
+                                <span className="text-xs bg-expense/15 text-expense px-1.5 py-0.5 rounded font-medium">
+                                  Failed
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -257,19 +284,49 @@ export function HistoryTab({ transactions, onDeleteTransaction, currency }: Hist
                             </div>
                           </div>
                         </div>
-                        <span
-                          className={`font-semibold ${
-                            transaction.type === "income"
-                              ? "text-income"
-                              : transaction.type === "savings"
-                              ? "text-savings"
-                              : transaction.type === "debt_payment"
-                              ? "text-amber-500"
-                              : "text-expense"
-                          }`}
-                        >
-                          {transaction.type === "income" ? "+" : "-"}{formatCurrency(transaction.amount, currency)}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {isFailed && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-expense"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRetryTransaction(transaction.id);
+                                }}
+                                aria-label="Retry saving transaction"
+                              >
+                                <RotateCw className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-muted-foreground"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDiscardTransaction(transaction.id);
+                                }}
+                                aria-label="Discard failed transaction"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
+                          <span
+                            className={`font-semibold ${
+                              transaction.type === "income"
+                                ? "text-income"
+                                : transaction.type === "savings"
+                                ? "text-savings"
+                                : transaction.type === "debt_payment"
+                                ? "text-amber-500"
+                                : "text-expense"
+                            }`}
+                          >
+                            {transaction.type === "income" ? "+" : "-"}{formatCurrency(transaction.amount, currency)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );

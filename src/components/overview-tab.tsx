@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, PiggyBank, Wallet, Shield, Calendar, X, CreditCard, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, Wallet, Shield, Calendar, X, CreditCard, AlertTriangle, Loader2, RotateCw } from "lucide-react";
 import { Transaction, MonthStatus, getCategoryById, CurrencyCode } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 
@@ -20,9 +20,11 @@ type OverviewTabProps = {
   totalDebt: number; // All-time debt
   onCloseMonth: (month: string, remaining: number) => void;
   currency: CurrencyCode;
+  onRetryTransaction: (id: string) => void;
+  onDiscardTransaction: (id: string) => void;
 };
 
-export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMonth, currency }: OverviewTabProps) {
+export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMonth, currency, onRetryTransaction, onDiscardTransaction }: OverviewTabProps) {
   // Default to current month
   const getCurrentMonthKey = () => {
     const now = new Date();
@@ -72,6 +74,8 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
     };
 
     monthTransactions.forEach((t) => {
+      // Failed (un-saved) rows must not count toward totals.
+      if (t._status === "failed") return;
       if (t.type === "income") {
         result.totalIncome += t.amount;
       } else if (t.type === "savings") {
@@ -105,6 +109,8 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
   // Calculate cumulative savings and emergency fund (all-time)
   const cumulativeTotals = transactions.reduce(
     (acc, t) => {
+      // Failed (un-saved) rows must not count toward totals.
+      if (t._status === "failed") return acc;
       // Add deposits to savings
       if (t.type === "savings" && t.category_id === "savings") {
         acc.totalSavings += t.amount;
@@ -124,6 +130,13 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
       if (t.type === "expense" && t.funded_from === "emergency_fund") {
         acc.totalEmergencyFund -= t.amount;
       }
+      // Subtract debt payments funded from savings/emergency
+      if (t.type === "debt_payment" && t.funded_from === "savings") {
+        acc.totalSavings -= t.amount;
+      }
+      if (t.type === "debt_payment" && t.funded_from === "emergency_fund") {
+        acc.totalEmergencyFund -= t.amount;
+      }
       return acc;
     },
     { totalSavings: 0, totalEmergencyFund: 0, savingsBySubcategory: {} as Record<string, number> }
@@ -131,7 +144,7 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
 
   // Calculate spending by category for visualization
   const expensesByCategory = monthTransactions
-    .filter((t) => t.type === "expense")
+    .filter((t) => t.type === "expense" && t._status !== "failed")
     .reduce((acc, t) => {
       acc[t.category_id] = (acc[t.category_id] || 0) + t.amount;
       return acc;
@@ -361,10 +374,14 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
             <div className="space-y-2">
               {recentTransactions.map((transaction) => {
                 const category = getCategoryById(transaction.category_id);
+                const isSaving = transaction._status === "saving";
+                const isFailed = transaction._status === "failed";
                 return (
                   <div
                     key={transaction.id}
-                    className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                    className={`flex items-center justify-between py-2 border-b border-border last:border-0 ${
+                      isFailed ? "border-l-2 border-l-expense pl-2 opacity-80" : ""
+                    } ${isSaving ? "opacity-70" : ""}`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-xl">{category?.emoji || "📝"}</span>
@@ -375,11 +392,42 @@ export function OverviewTab({ transactions, monthStatuses, totalDebt, onCloseMon
                             {[transaction.subcategory, transaction.note].filter(Boolean).join(" · ")}
                           </p>
                         )}
+                        {isSaving && (
+                          <p className="text-xs text-muted-foreground animate-pulse flex items-center gap-1 mt-0.5">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Saving…
+                          </p>
+                        )}
+                        {isFailed && (
+                          <p className="text-xs text-expense font-medium mt-0.5">Failed</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {transaction.is_auto && (
                         <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Auto</span>
+                      )}
+                      {isFailed && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-expense"
+                            onClick={() => onRetryTransaction(transaction.id)}
+                            aria-label="Retry saving transaction"
+                          >
+                            <RotateCw className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-muted-foreground"
+                            onClick={() => onDiscardTransaction(transaction.id)}
+                            aria-label="Discard failed transaction"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
                       )}
                       <span
                         className={`font-medium ${

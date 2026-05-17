@@ -29,6 +29,10 @@ export type Transaction = {
   // For savings: whether auto-generated at month end
   is_auto?: boolean;
   savings_type?: SavingsType;
+  // Client-only: not persisted. Set while a write is in-flight or after it fails.
+  _status?: "saving" | "failed";
+  // Client-only: stored on a failed row so the user can retry without re-entering data.
+  _pendingPayload?: Omit<Transaction, "id" | "created_at" | "user_id" | "_status" | "_pendingPayload">;
 };
 
 // Month status for tracking month-end processing

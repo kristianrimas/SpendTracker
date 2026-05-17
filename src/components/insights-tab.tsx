@@ -120,6 +120,12 @@ export function InsightsTab({ transactions, currency }: InsightsTabProps) {
         if (t.type === "expense" && t.funded_from === "emergency_fund") {
           acc.emergencyFund -= t.amount;
         }
+        if (t.type === "debt_payment" && t.funded_from === "savings") {
+          acc.savings -= t.amount;
+        }
+        if (t.type === "debt_payment" && t.funded_from === "emergency_fund") {
+          acc.emergencyFund -= t.amount;
+        }
         return acc;
       },
       { savings: 0, emergencyFund: 0 }

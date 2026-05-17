@@ -25,7 +25,7 @@ export default function HomePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Load user and data on mount
   useEffect(() => {
@@ -87,59 +87,162 @@ export default function HomePage() {
     loadData();
   }, [supabase]);
 
+  const handleRetryTransaction = useCallback(async (id: string) => {
+    if (!userId) {
+      toast.error("Not signed in. Please refresh.");
+      return;
+    }
+
+    // Find the failed row and pull its pending payload (do this from latest state).
+    let payload: Transaction["_pendingPayload"] | undefined;
+    setTransactions((prev) => {
+      const target = prev.find((t) => t.id === id);
+      if (!target || !target._pendingPayload) {
+        payload = undefined;
+        return prev;
+      }
+      payload = target._pendingPayload;
+      // Flip to "saving"
+      return prev.map((t) =>
+        t.id === id ? { ...t, _status: "saving" as const } : t
+      );
+    });
+
+    if (!payload) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("st_transactions")
+        .insert({
+          user_id: userId,
+          amount: payload.amount,
+          type: payload.type,
+          category_id: payload.category_id,
+          subcategory: payload.subcategory,
+          note: payload.note,
+          date: payload.date,
+          funded_from: payload.funded_from,
+          is_auto: payload.is_auto,
+          savings_type: payload.savings_type,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === id ? (data as Transaction) : t))
+        );
+        const category = getCategoryById(payload.category_id);
+        const amountFormatted = formatCurrency(payload.amount, currency);
+        toast.success(`${category?.emoji || ""} ${amountFormatted} added`, {
+          description: category?.name || "Transaction recorded",
+        });
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Something went wrong. Please try again.";
+      console.error("Error saving transaction:", err);
+      setTransactions((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, _status: "failed" as const } : t
+        )
+      );
+      toast.error("Failed to save transaction", {
+        description: message,
+        action: {
+          label: "Retry",
+          onClick: () => handleRetryTransaction(id),
+        },
+      });
+    }
+  }, [userId, supabase, currency]);
+
   const handleAddTransaction = useCallback(async (
     newTransaction: Omit<Transaction, "id" | "created_at" | "user_id">
   ) => {
-    if (!userId) return;
+    if (!userId) {
+      toast.error("Not signed in. Please refresh.");
+      return;
+    }
 
-    // Optimistically add to local state
+    // Optimistically add to local state with a "saving" status.
     const tempId = crypto.randomUUID();
     const optimisticTransaction: Transaction = {
       ...newTransaction,
       id: tempId,
       created_at: new Date().toISOString(),
       user_id: userId,
+      _status: "saving",
+      _pendingPayload: newTransaction,
     };
     setTransactions((prev) => [optimisticTransaction, ...prev]);
     setActiveTab("overview");
 
-    // Show toast
-    const category = getCategoryById(newTransaction.category_id);
-    const amountFormatted = formatCurrency(newTransaction.amount, currency);
-    toast.success(`${category?.emoji || ""} ${amountFormatted} added`, {
-      description: category?.name || "Transaction recorded",
-    });
+    // Save to Supabase — only commit success after DB confirms.
+    try {
+      const { data, error } = await supabase
+        .from("st_transactions")
+        .insert({
+          user_id: userId,
+          amount: newTransaction.amount,
+          type: newTransaction.type,
+          category_id: newTransaction.category_id,
+          subcategory: newTransaction.subcategory,
+          note: newTransaction.note,
+          date: newTransaction.date,
+          funded_from: newTransaction.funded_from,
+          is_auto: newTransaction.is_auto,
+          savings_type: newTransaction.savings_type,
+        })
+        .select()
+        .single();
 
-    // Save to Supabase
-    const { data, error } = await supabase
-      .from("st_transactions")
-      .insert({
-        user_id: userId,
-        amount: newTransaction.amount,
-        type: newTransaction.type,
-        category_id: newTransaction.category_id,
-        subcategory: newTransaction.subcategory,
-        note: newTransaction.note,
-        date: newTransaction.date,
-        funded_from: newTransaction.funded_from,
-        is_auto: newTransaction.is_auto,
-        savings_type: newTransaction.savings_type,
-      })
-      .select()
-      .single();
+      if (error) throw error;
 
-    if (error) {
-      console.error("Error saving transaction:", error);
-      toast.error("Failed to save transaction");
-      // Rollback
-      setTransactions((prev) => prev.filter((t) => t.id !== tempId));
-    } else if (data) {
-      // Replace temp with real data
+      if (data) {
+        // Replace temp with real data (strips _status / _pendingPayload).
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === tempId ? (data as Transaction) : t))
+        );
+        const category = getCategoryById(newTransaction.category_id);
+        const amountFormatted = formatCurrency(newTransaction.amount, currency);
+        toast.success(`${category?.emoji || ""} ${amountFormatted} added`, {
+          description: category?.name || "Transaction recorded",
+        });
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Something went wrong. Please try again.";
+      console.error("Error saving transaction:", err);
+      // Keep the row, but mark it failed and preserve the payload for retry.
       setTransactions((prev) =>
-        prev.map((t) => (t.id === tempId ? data : t))
+        prev.map((t) =>
+          t.id === tempId ? { ...t, _status: "failed" as const } : t
+        )
       );
+      toast.error("Failed to save transaction", {
+        description: message,
+        action: {
+          label: "Retry",
+          onClick: () => handleRetryTransaction(tempId),
+        },
+      });
     }
-  }, [userId, supabase]);
+  }, [userId, supabase, currency, handleRetryTransaction]);
+
+  const handleDiscardFailedTransaction = useCallback((id: string) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const handleDeleteTransaction = useCallback(async (id: string) => {
     const transaction = transactions.find((t) => t.id === id);
@@ -460,6 +563,8 @@ export default function HomePage() {
                 totalDebt={totalDebt}
                 onCloseMonth={handleCloseMonth}
                 currency={currency}
+                onRetryTransaction={handleRetryTransaction}
+                onDiscardTransaction={handleDiscardFailedTransaction}
               />
             </div>
           )}
@@ -481,6 +586,8 @@ export default function HomePage() {
                 transactions={transactions}
                 onDeleteTransaction={handleDeleteTransaction}
                 currency={currency}
+                onRetryTransaction={handleRetryTransaction}
+                onDiscardTransaction={handleDiscardFailedTransaction}
               />
             </div>
           )}

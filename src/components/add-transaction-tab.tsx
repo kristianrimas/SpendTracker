@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
   const [subcategorySheetOpen, setSubcategorySheetOpen] = useState(false);
   const [showPayDebtDialog, setShowPayDebtDialog] = useState(false);
   const [debtPaymentAmount, setDebtPaymentAmount] = useState("");
+  const [payDebtFrom, setPayDebtFrom] = useState<FundedFrom>("income");
 
   const fundedFromOptions: { value: FundedFrom; label: string; emoji: string }[] = [
     { value: "income", label: "This Month", emoji: "💵" },
@@ -71,7 +73,10 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
   };
 
   const handleSubmit = () => {
-    if (!amount || !selectedCategory) return;
+    if (!amount || !selectedCategory) {
+      toast.error("Please enter an amount and select a category");
+      return;
+    }
 
     const transaction: Omit<Transaction, "id" | "created_at" | "user_id"> = {
       amount: parseFloat(amount),
@@ -82,6 +87,9 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
       date,
       // Only include funded_from for expenses
       ...(selectedCategory.type === "expense" && { funded_from: fundedFrom }),
+      // Manual savings must carry savings_type='manual'; auto-close-month path sets 'auto'.
+      // Required by st_transactions_savings_needs_type CHECK constraint.
+      ...(selectedCategory.type === "savings" && { savings_type: "manual" as const }),
     };
 
     onAddTransaction(transaction);
@@ -107,15 +115,18 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
       category_id: "debt_payment",
       note: "Debt payment",
       date: new Date().toLocaleDateString("en-CA"),
+      ...(payDebtFrom !== "income" && { funded_from: payDebtFrom }),
     };
 
     onAddTransaction(debtPaymentTransaction);
     setShowPayDebtDialog(false);
     setDebtPaymentAmount("");
+    setPayDebtFrom("income");
   };
 
   const openPayDebtDialog = () => {
     setDebtPaymentAmount(totalDebt.toFixed(2));
+    setPayDebtFrom("income");
     setShowPayDebtDialog(true);
   };
 
@@ -172,6 +183,37 @@ export function AddTransactionTab({ onAddTransaction, presets = [], totalDebt = 
               </div>
               {parseFloat(debtPaymentAmount) > totalDebt && (
                 <p className="text-xs text-expense">Amount cannot exceed total debt</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Pay From</Label>
+              <div className="flex gap-2">
+                {fundedFromOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={payDebtFrom === option.value ? "default" : "outline"}
+                    className={`flex-1 h-auto py-2.5 px-3 ${
+                      payDebtFrom === option.value
+                        ? option.value === "income"
+                          ? "bg-zinc-700 hover:bg-zinc-600"
+                          : option.value === "savings"
+                          ? "bg-savings hover:bg-savings/90"
+                          : "bg-amber-600 hover:bg-amber-500"
+                        : ""
+                    }`}
+                    onClick={() => setPayDebtFrom(option.value)}
+                  >
+                    <span className="mr-1.5">{option.emoji}</span>
+                    <span className="text-sm">{option.label}</span>
+                    {payDebtFrom === option.value && <Check className="ml-1.5 h-3.5 w-3.5" />}
+                  </Button>
+                ))}
+              </div>
+              {payDebtFrom !== "income" && (
+                <p className="text-xs text-amber-400">
+                  This will deduct from your {payDebtFrom === "savings" ? "Savings" : "Emergency Fund"} total
+                </p>
               )}
             </div>
           </div>
